@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter
 from time import time
 from bokeh.layouts import gridplot,column,row
 from bokeh.plotting import figure, output_file, show,output_notebook
-from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph
+from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph,TextInput
 from bokeh.io import curdoc
 from DatabaseWriter import DatabaseWrite
 from WaveformReader import WaveformReader
@@ -345,8 +345,9 @@ p=make_plot('Istogramma 0',A0h,A0e,source)#inizializzazione della figura
 p2=make_plot2('Attuale presa dati',source3)
 acquisizione=False #controlla che il programma stia acquisendo dati, inizializzato a falso
 update_menu_check=False
+nome_db=TextInput(title='Nome del database di memorizzazione:',value='waveforms.db')
 acquisitionMananger = WaveformReader ()
-dbw = DatabaseWrite ('waveforms.db', acquisitionMananger) 
+dbw = DatabaseWrite (nome_db.value, acquisitionMananger) 
 
 
 #FUNZIONI PER L'AGGIORNAMENTO DEI BOTTONI------------------------------------------------------------------------------------------------
@@ -398,6 +399,10 @@ ciclo_acq. quando la variabile acquisizione=True
     bottone2.update(label='Inizio acquisizione',button_type='success')
     update_menu(0,0,0)
 
+def update_nome_db(attr,old,new):
+  global dbw  
+  dbw = DatabaseWrite (nome_db.value, acquisitionMananger) 
+
 
 def ciclo_acq():
   global t,C1
@@ -422,7 +427,7 @@ def ciclo_acq():
 
 
 def update_menu(attr,old,new):
-
+  
   global A0
   if update_menu_check==False:
     return
@@ -460,11 +465,12 @@ menu=Select(options=['Gaussiana biforcuta','Gaussiana skew','Ricerca minimi semp
 infobox=Paragraph(text='Programma pronto per iniziare a prendere misure',width=400)
 
 menu.on_change('value',update_menu)
+nome_db.on_change('value',update_nome_db)
 bottone0.on_click(update_button0)
 bottone1.on_click(update_button1)
 bottone2.on_click(update_button2)
 
-fitting_buttons=column(bottone2,bottone0,bottone1,menu,infobox)
+fitting_buttons=column(bottone2,bottone0,bottone1,menu,nome_db,infobox)
 
 
 curdoc().add_root(row(fitting_buttons, p,p2, width=1200))

@@ -115,7 +115,7 @@ class WaveformReader:
 
     # Set number of pre and post trigger samples to be collected
     self.preTriggerSamples = 2500
-    self.postTriggerSamples = 8500
+    self.postTriggerSamples = 4500
     self.totalSamples = self.preTriggerSamples + self.postTriggerSamples
 
     # Get timebase information
