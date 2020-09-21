@@ -19,6 +19,7 @@ from DatabaseWriter import DatabaseWrite
 from FakeWaveformReader import FakeWaveformReader
 from WaveformReader import WaveformReader
 from tqdm import tqdm 
+from UsefulFunctions import UsefulFunctions as UF
 
 dfit=pd.read_csv('Fitting_parameters.csv',index_col=0,delimiter=',',comment='#')
 
@@ -27,101 +28,6 @@ p0_GS=[dfit['valore']['amplGS'],dfit['valore']['muGS'],dfit['valore']['sigmaGS']
 p0_L=[dfit['valore']['muL'],dfit['valore']['sigmaL']]
 p0_LG=[dfit['valore']['mulandLG'],dfit['valore']['mugaussLG'],dfit['valore']['sigmalandLG'],dfit['valore']['sigmagaussLG']]
 
-
-
-#LETTURA DA FILE
-#--------------------------------------------------------------------------------------------------------------------------------------
-
-def readfiles(checklength=False,channel_select=0):
-
-  ''' Legge i file delle prese dati e li trasferisce in memoria sotto gli array t, C1, C2
-  
-      Se si desidera controllare che tutti i file abbiano la stessa lunghezza, impostare checklenght=True '''
-
-
-  files = glob("/home/lucio/timespotwp2_cce_measurement/LucaData/Agosto31/C?Trace*.txt")
-  #files= glob("/home/timespot/timespotwp2_cce_measurement/LucaData/Agosto31/C?Trace*.txt")
-  nfiles=len(files)
-
-  #Controllo lunghezza file, se ci sono file con lunghezza diversa, il processo si arresta
-
-  if checklength==True:
-    n_prese,outliers=len_check(files)
-    files1=np.array(files)
-
-    if len(outliers)!=nfiles:
-      files=files1[outliers]
-      nfiles=len(files)
-    n_prese=int(n_prese)
-
-  else:
-    df=pd.read_csv ( files[0], sep = ',',nrows=2 )
-    n_prese= int( df['Waveform'][0] )
-
-  #if filelimit!=0:
-   # files=files[:(filelimit)]
-    #nfiles=filelimit
-
-
-
-  
-  #Inizializzazione array
-
-  t = np.zeros ( (nfiles//2+1, n_prese ))
-  C1 = np.zeros ( (nfiles//2+1, n_prese ))
-  C2 = np.zeros ( (nfiles//2+1, n_prese ))
-
-
-
-  for filename in tqdm(files, unit = 'files'):
-
-    #Controllo validità file e numero di file
-
-    channel = re.findall (r"timespotwp2_cce_measurement/LucaData/Agosto31/C([0-9])Trace.*\.txt", filename )
-    if len(channel) == 0:
-      print ("File non valido (channel not found): " % filename)
-      continue 
-    channel = int (channel[0])
-
-    #Controllo canale selezionato
-
-    if channel_select!=0:
-      if channel!=channel_select:
-        continue
-
-
-
-
-    waveform = re.findall (r"timespotwp2_cce_measurement/LucaData/Agosto31/C[0-9]Trace([0-9]*)\.txt", filename )
-    if len(waveform) == 0:
-      print ("File non valido (waveform not found): " % filename)
-      continue 
-    waveform = int (waveform[0])
-
-    #Raccolta in memoria dei contenuti dei file
-    
-    df = pd.read_csv ( filename, sep = ',', header = 4 )
-
-    if len(df['Time'].values)!=n_prese:      
-      print ("File non valido (Numero errato di dati): " % filename)
-      continue
-
-
-    t[waveform] = df['Time'].values / 1e-6
-
-    if channel == 1:
-      C1  [waveform] = df['Ampl'].values / 1e-3  
-    elif channel == 2:
-      C2  [waveform] = df['Ampl'].values / 1e-3 
-
-  #Stampa di controllo
-
-  print ("\n")
-  print (t.shape)
-  print (C1.shape)
-  print (C2.shape)
-
-  return t, C1, C2
 
 
 #Fitting per la waveform
@@ -246,7 +152,7 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
       pf=np.zeros(5)
       C1_sm=gaussian_filter(C1[i],40)
       try:
-        pf,pcov=optimize.curve_fit(gauss_asimm,t[i,::step],C1_sm[::step],p0=p0_GB)
+        pf,pcov=optimize.curve_fit(UF.gauss_asimm,t[i,::step],C1_sm[::step],p0=p0_GB)
       except:
         print('Errore a ',i)
 
@@ -266,13 +172,13 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
         #parte di fitting
 
         try:
-          pf,pcov=optimize.curve_fit(gauss_skew,t[i,::step],C1_sm[::step],p0=p0_GS)
+          pf,pcov=optimize.curve_fit(UF.gauss_skew,t[i,::step],C1_sm[::step],p0=p0_GS)
         except:
           print('Errore a ',i)
 
         #parte di ricerca del minimo
         
-        A=optimize.minimize(gauss_skew,14,args=(pf[0],pf[1],pf[2],pf[3],pf[4]))
+        A=optimize.minimize(UF.gauss_skew,14,args=(pf[0],pf[1],pf[2],pf[3],pf[4]))
 
         Amplitude[i]=-A.fun+pf[4]
         mu[i]=A.x 
@@ -305,19 +211,19 @@ def fit_hist(A,method=0):
   A0e=edges_adjust(A0e_prov)
   if method==0:
     nmoyal=sum(A0h[7:])
-    pf,pcov=optimize.curve_fit(just_moyal,A0e,A0h,p0=[nmoyal,17.0,10.0])
+    pf,pcov=optimize.curve_fit(UF.just_moyal,A0e,A0h,p0=[nmoyal,17.0,10.0])
     
-    A0hfit=just_moyal(A0e,pf[0],pf[1],pf[2])
+    A0hfit=UF.just_moyal(A0e,pf[0],pf[1],pf[2])
   elif method==1:
     ngauss=sum(A0h[:7])
     nmoyal=sum(A0h[7:])
-    pf,pcov=optimize.curve_fit(moyalangauss,A0e,A0h,p0=[nmoyal, ngauss, 17.0, 1.0, 10,2.0])
+    pf,pcov=optimize.curve_fit(UF.moyalangauss,A0e,A0h,p0=[nmoyal, ngauss, 17.0, 1.0, 10,2.0])
   
     
-    A0hfit=moyalangauss(A0e,pf[0],pf[1],pf[2],pf[3],pf[4],pf[5])
+    A0hfit=UF.moyalangauss(A0e,pf[0],pf[1],pf[2],pf[3],pf[4],pf[5])
   elif method==2:
-    pf,pcov=optimize.curve_fit(gaussanmoyal,A0e,A0h,p0=[5000.0 , 5, 17.0, 3.0, 10,0.1,5])
-    A0hfit=gaussanmoyal(A0e,pf[0],pf[1],pf[2],pf[3],pf[4],pf[5],pf[6])
+    pf,pcov=optimize.curve_fit(UF.gaussanmoyal,A0e,A0h,p0=[5000.0 , 5, 17.0, 3.0, 10,0.1,5])
+    A0hfit=UF.gaussanmoyal(A0e,pf[0],pf[1],pf[2],pf[3],pf[4],pf[5],pf[6])
   return A0h,A0e,A0hfit,pf,pcov
 
 
@@ -354,9 +260,7 @@ def make_plot2(title,source3):
 
 
 
-#t,C1,C2=readfiles(channel_select=1)
-#A0,mu0,B0=Amplitude_dist(t,C1,mode=0,nfiles=0)
-#A0h,A0e=np.histogram(A0,range=(0.1,100),bins=100)
+
 A0=np.zeros(100)  #array inizializzati, ampiezze delle singole prese dati
 A0h=np.ones(100)  #istogramma delle ampiezze
 A0e=np.linspace(0,100,100,endpoint=1)   #posizione della colonna dell'istogramma
