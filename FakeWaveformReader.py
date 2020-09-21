@@ -4,13 +4,13 @@ import time
 from tqdm import tqdm 
 from glob import glob 
 import re 
-
+import matplotlib.pyplot as plt
 class FakeWaveformReader:
     def __init__ (self, folder = None, checklength = False ):
       ''' Legge i file delle prese dati e li trasferisce quando si chiama la funzione read
       
           Se si desidera controllare che tutti i file abbiano la stessa lunghezza, impostare checklenght=True '''
-      self._folder = folder or "/home/timespot/timespotwp2_cce_measurement/LucaData/Agosto31/C?Trace*.txt"
+      self._folder = folder or "/home/lucio/timespotwp2_cce_measurement/LucaData/Agosto31/C?Trace*.txt"
       self._files = glob(self._folder)
         
       nfiles=len(self._files)
@@ -42,12 +42,12 @@ class FakeWaveformReader:
 
       
 
-    def read ( self,  daq_time = 1. ):
+    def run ( self,  daq_time = 0.3 ):
       ## Aspettando che la scheda di acquisizione acquisisca un po' di waveform
       time.sleep ( daq_time ) 
 
       ## Numero random di acquisizioni in un intervallo di un secondo 
-      nAcq = np.random.poisson ( 3. ) 
+      nAcq =1 #np.random.poisson ( 3. ) 
 
       if nAcq > ( len (self._waveformIds) ):
         return (np.empty ( (0,  self._n_prese )), 
@@ -87,16 +87,21 @@ class FakeWaveformReader:
       for acq in acq_this_round: 
         self._waveformIds.remove ( acq ) 
 
-      return t, C1, C2
+      return t*1000, C1, C2
 
 
 
 if __name__ == '__main__':
-    acquisitionMananger = FakeWaveformReader ("/home/timespot/timespotwp2_cce_measurement/LucaData/Agosto31/C?Trace*.txt")
+    acquisitionMananger = FakeWaveformReader ("/home/lucio/timespotwp2_cce_measurement/LucaData/Agosto31/C?Trace*.txt")
 
     while True: 
         try:
-            t, C1, C2 = acquisitionMananger.read()
+            
+            t, C1, C2 = acquisitionMananger.run()
+            
+            plt.scatter(t[:],C1[:])
+            plt.show()
+            print(C1.shape)
             print ("Reading... %d waveforms" % t.shape[0]) 
         except StopIteration:
             break 

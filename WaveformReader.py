@@ -256,7 +256,7 @@ class WaveformReader:
 
     # display status returns
     #print(self.status)
-    return self.waveformA,self.waveformB,self.t    
+    return self.t,self.waveformA,self.waveformB    
 
 
 if __name__=='__main__':

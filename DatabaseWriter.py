@@ -5,12 +5,31 @@ import numpy as np
 import pandas as pd 
 import sqlite3 
 import base64
+from scipy.ndimage import gaussian_filter
 
 class DatabaseWrite:
-    def __init__ (self, db_filename, reader):
+    def __init__ (self, db_filename, reader,step=0):
+
+        '''Classe per la registrazione in memoria delle waveform lette.Contiene: 
+          __init__(db_filename,reader,step=0):
+              db_filename: nome del database dove verranno registrati i dati
+              reader:      nome della classe usata per leggere le waveform
+              step:        numero di punti che vengono saltati per ogni presa in memoria, se=0 tutti i punti vengono registrati
+         
+
+          run(): registra in memoria l'utima presa dati di reader
+
+          readlastWaveform(): restituisce i dati relativi l'ultima waveform
+
+          readWaveforms(): restituisce tre array contenenti ogni waveform contenuta nel database
+
+
+          '''   
+
         self._db = sqlite3.connect ( db_filename ) 
         self.it=0
         self.reader = reader
+        self.step=step
         self.t=[]
         self.C1=[]
         self.C2=[]
@@ -20,11 +39,21 @@ class DatabaseWrite:
         for i in range(1): 
            for i in range(1): #try:
                 self.it+=1
-                C1list, C2list,tlist = self.reader.run()
+                tlist, C1list, C2list= self.reader.run()
+                if self.step==0:
+                    t=np.array(tlist)
+                    C1=np.array(C1list)
+                    C2=np.array(C2list)
 
-                t=np.array(tlist)
-                C1=np.array(C1list)
-                C2=np.array(C2list)
+                else:
+                    C1_sm=gaussian_filter(C1list,40)
+                    C2_sm=gaussian_filter(C2list,40)
+                    t=np.array(tlist[::self.step])
+                    C1=np.array(C1_sm[::self.step])
+                    C2=np.array(C2_sm[::self.step])
+
+
+
                 nRow = t.shape [ 0 ]
                 self.nCol=len(t)
                 #print(nRow) 

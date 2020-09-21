@@ -1,0 +1,26 @@
+#####SETTING PARAMETRI PER FITTARE LE CURVE
+variabile,valore
+#Gaussiana biforcuta
+amplGB,   22
+muGB,     1.5
+sigma1GB,  1
+sigma2GB,  1
+baselineGB,1
+#
+#Gaussiana skewed
+amplGS,    30
+muGS,      1.4
+sigmaGS,   1.5
+skewnessGS,10.0
+baselineGS,1.0
+#
+#Landau
+muL,   17
+sigmaL,10
+#
+#Landau+Gaussiana
+#
+mulandLG,    17
+sigmalandLG, 10
+mugaussLG,   1
+sigmagaussLG,2

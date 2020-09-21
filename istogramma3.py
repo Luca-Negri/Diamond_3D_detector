@@ -16,8 +16,18 @@ from bokeh.plotting import figure, output_file, show,output_notebook
 from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph,TextInput
 from bokeh.io import curdoc
 from DatabaseWriter import DatabaseWrite
+from FakeWaveformReader import FakeWaveformReader
 from WaveformReader import WaveformReader
 from tqdm import tqdm 
+
+dfit=pd.read_csv('Fitting_parameters.csv',index_col=0,delimiter=',',comment='#')
+
+p0_GB=[dfit['valore']['amplGB'],dfit['valore']['muGB'],dfit['valore']['sigma1GB'],dfit['valore']['sigma2GB'],dfit['valore']['baselineGB']]
+p0_GS=[dfit['valore']['amplGS'],dfit['valore']['muGS'],dfit['valore']['sigmaGS'],dfit['valore']['skewnessGS'],dfit['valore']['baselineGS']]
+p0_L=[dfit['valore']['muL'],dfit['valore']['sigmaL']]
+p0_LG=[dfit['valore']['mulandLG'],dfit['valore']['mugaussLG'],dfit['valore']['sigmalandLG'],dfit['valore']['sigmagaussLG']]
+
+
 
 #LETTURA DA FILE
 #--------------------------------------------------------------------------------------------------------------------------------------
@@ -179,6 +189,7 @@ def gaussanmoyal(edges,A1,A2,mu1,mu2,s1,s2,div):
   return np.where(edges<div,gauss,mo)
 
 def edges_adjust(edges):
+  '''trasforma l'output "edges" della funzione np.hist in un formato utilizzabile dalle altre funzioni'''
   n=len(edges)-1
   realedges=np.zeros(n)
   for i in range(n):
@@ -225,6 +236,7 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
   elif step<=0:
     raise ValueError("L'argomento step deve essere un intero positivo")
 
+  #Selelzione modalità di fitting
 
   if mode==0:
 
@@ -234,7 +246,7 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
       pf=np.zeros(5)
       C1_sm=gaussian_filter(C1[i],40)
       try:
-        pf,pcov=optimize.curve_fit(gauss_asimm,t[i,::step],C1_sm[::step],p0=[22,15,1,1,1])
+        pf,pcov=optimize.curve_fit(gauss_asimm,t[i,::step],C1_sm[::step],p0=p0_GB)
       except:
         print('Errore a ',i)
 
@@ -254,7 +266,7 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
         #parte di fitting
 
         try:
-          pf,pcov=optimize.curve_fit(gauss_skew,t[i,::step],C1_sm[::step],p0=[30 ,14 ,1.5 , 10,0.0])
+          pf,pcov=optimize.curve_fit(gauss_skew,t[i,::step],C1_sm[::step],p0=p0_GS)
         except:
           print('Errore a ',i)
 
@@ -280,6 +292,15 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
 #METODI PER FITTARE GLI ISTOGRAMMI
 
 def fit_hist(A,method=0):
+
+  '''Funzione utilizzat per fittare gli istogrammi delle ampiezze, accetta gli argomenti 
+
+        A:ampiezze delle waveform, dulle quali costruire l'istogramma
+        method: funzione che si vuole utilizzare per fittare l'istogramma, si sceglie tra
+            0: Landau
+            1:Landau+Gaussiana
+            2:Gaussiana fino ad un certo punto, poi Landau '''
+
   A0h,A0e_prov=np.histogram(A,bins=100,range=(0.1,100))
   A0e=edges_adjust(A0e_prov)
   if method==0:
@@ -303,7 +324,8 @@ def fit_hist(A,method=0):
 #METODI PER PLOTTARE I FIT
 #---------------------------------------------------------------------------------------------------------------------------
 
-def make_plot(title, hist, edges,source):
+def make_plot(title,source):
+    '''Plot dell'istogtamma'''
     p = figure(title=title, tools='crosshair,pan,reset,save,wheel_zoom', background_fill_color="#fafafa")
     p.quad(top='hist',source=source, bottom=0, left='edges1', right='edges2',
            fill_color="blue", line_color="white", alpha=0.5,legend_label='')
@@ -317,8 +339,9 @@ def make_plot(title, hist, edges,source):
 
 
 def make_plot2(title,source3):
-    p = figure(title=title, tools="crosshair,pan,reset,save,wheel_zoom", background_fill_color="#fafafa")
-    p.line('t','V',source=source3, line_color="#ff8888", line_width=1, alpha=1, legend_label="Waveform")
+    '''Plot di una waveform singola'''
+    p = figure(title=title, tools="crosshair,pan,reset,save,wheel_zoom", background_fill_color="black")
+    p.line('t','V',source=source3, line_color="green", line_width=1, alpha=1, legend_label="Waveform")
 
     
     p.legend.location = "bottom_left"
@@ -334,20 +357,20 @@ def make_plot2(title,source3):
 #t,C1,C2=readfiles(channel_select=1)
 #A0,mu0,B0=Amplitude_dist(t,C1,mode=0,nfiles=0)
 #A0h,A0e=np.histogram(A0,range=(0.1,100),bins=100)
-A0=np.zeros(100)#array inizializzati, ampiezze delle singole prese dati
-A0h=np.ones(100)#istogramma delle ampiezze
-A0e=np.linspace(0,100,100,endpoint=1)#posizione della colonna dell'istogramma
+A0=np.zeros(100)  #array inizializzati, ampiezze delle singole prese dati
+A0h=np.ones(100)  #istogramma delle ampiezze
+A0e=np.linspace(0,100,100,endpoint=1)   #posizione della colonna dell'istogramma
 A0h=np.exp(-(A0e[:-1]-50.0)**2/500.0)
-source=ColumnDataSource(data=dict(hist=A0h,edges1=A0e[:-1],edges2=A0e[1:]))#source per plottare gli istogrammi
-source2=ColumnDataSource(data=dict(x1=np.zeros(100),y1=np.zeros(100)))#source per plottare il fit degli istogrammi
-source3=ColumnDataSource(data=dict(t=np.linspace(0,1000,1000),V=np.zeros(1000)))
-p=make_plot('Istogramma 0',A0h,A0e,source)#inizializzazione della figura
+source=ColumnDataSource(data=dict(hist=A0h,edges1=A0e[:-1],edges2=A0e[1:])) #source per plottare gli istogrammi
+source2=ColumnDataSource(data=dict(x1=np.zeros(100),y1=np.zeros(100)))      #source per plottare il fit degli istogrammi
+source3=ColumnDataSource(data=dict(t=np.linspace(0,1000,1000),V=np.zeros(1000),Vfit=np.zeros(1000))) #source per plottare la waveform corrente
+p=make_plot('Istogramma 0',source)    #inizializzazione della figura
 p2=make_plot2('Attuale presa dati',source3)
-acquisizione=False #controlla che il programma stia acquisendo dati, inizializzato a falso
-update_menu_check=False
-nome_db=TextInput(title='Nome del database di memorizzazione:',value='waveforms.db')
-acquisitionMananger = WaveformReader ()
-dbw = DatabaseWrite (nome_db.value, acquisitionMananger) 
+acquisizione=False         #controlla che il programma stia acquisendo dati, inizializzato a falso
+update_menu_check=False    #controllo se necessario fittare i dati dell'istogramma
+nome_db=TextInput(title='Nome del database di memorizzazione:',value='waveforms.db') #Widget per il cambiamento del nome del file di database
+acquisitionMananger =FakeWaveformReader () #Scelta della classe python che si occupa della lettura delle waveform
+dbw = DatabaseWrite (nome_db.value, acquisitionMananger) #classe python che si occupa della gestione in memoria delle waveform
 
 
 #FUNZIONI PER L'AGGIORNAMENTO DEI BOTTONI------------------------------------------------------------------------------------------------
@@ -386,7 +409,7 @@ ciclo_acq. quando la variabile acquisizione=True
     print ('Stop')
      
     update_menu_check=True
-   # t=np.array(dbw.t)
+    #t=np.array(dbw.t)
     #C1=np.array(dbw.C1)
     tlist,C1list,C2list=dbw.readWaveforms()
     C1=np.array(C1list)
