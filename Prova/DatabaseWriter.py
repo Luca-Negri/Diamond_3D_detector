@@ -10,18 +10,21 @@ from scipy.ndimage import gaussian_filter
 class DatabaseWrite:
     def __init__ (self, db_filename, reader,step=0):
 
-        '''Classe per la registrazione in memoria delle waveform lette.Contiene: 
-          __init__(db_filename,reader,step=0):
-              db_filename: nome del database dove verranno registrati i dati
-              reader:      nome della classe usata per leggere le waveform
-              step:        numero di punti che vengono saltati per ogni presa in memoria, se=0 tutti i punti vengono registrati
-         
+        '''python class used to store waveforms in a database. Contains:
+        
+            __init__(db_filename,reader,step=0):
+                db_filename: database name used to store data
+                reader     : python class used to read waveforms (it should contain a function named "run" to work)
+                step=0     : frequency of measurements to actually store in memory, if it's given the value 0 it will
+                             store every value
 
-          run(): registra in memoria l'utima presa dati di reader
+            run(): Reads the output from reader.run() and stores it in the database
 
-          readlastWaveform(): restituisce i dati relativi l'ultima waveform
+            readlastWaveform() : outputs the last waveform stored in the database
 
-          readWaveforms(): restituisce tre array contenenti ogni waveform contenuta nel database
+            readWaveforms() : outputs every waveform stored in the database                 
+        
+
 
 
           '''   

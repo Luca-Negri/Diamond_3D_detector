@@ -30,97 +30,29 @@ p0_LG=[dfit['valore']['mulandLG'],dfit['valore']['mugaussLG'],dfit['valore']['si
 
 
 
-#Fitting per la waveform
-#---------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-def gauss_asimm ( t, A, mu, s1, s2, baseline ):
-
-  gaus1 = np.exp ( - 0.5*(t - mu)**2/s1**2 )
-  gaus2 = np.exp ( - 0.5*(t - mu)**2/s2**2 )
-  return -A * np.where ( t < mu, gaus1, gaus2 ) + baseline
-
-def ExMG(t, A, mu, s, tau,baseline):
-
-  tmu=t-mu
-  return -A * np.exp(-0.5*(tmu/s)**2)/(1+tmu*tau/s**2) + baseline
-
-def ExMG2(t, A, mu, s, tau,baseline):
-  tmus=(t-mu)/s
-  stau=s/tau
-  return -A * np.exp(-0.5*tmus**2)*np.sqrt(np.pi*0.5)*special.erf(1/np.sqrt(2)*(stau-tmus))+baseline
-
-def gauss_skew(t, A, mu, s, alpha, baseline):
-  tmus=(t-mu)/s 
-  return -A*np.exp(-0.5*tmus**2)*(0.5*(1.0+special.erf(alpha/np.sqrt(2)*tmus)))+baseline
-
-
-#Fitting per l'istogramma
-#----------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-def landau_appr(t,A,mu):
-  return A*np.exp(-0.5*((t-mu)-np.exp(-t+mu)))
-
-def landau(tim,A,mu,s):
-
-  out=np.zeros(len(tim))
-
-  for i,t in enumerate(tim):
-    t2=(t-mu)*s
-    inte,interr=integrate.quad(landau2,0,np.inf,args=(t2))
-    out[i]=A*inte
-
-  return out
-
-def landau2(x,t):
-  return np.exp(-x*np.log(x)-x*t)*np.sin(np.pi*x)
-
-def moyalangauss(edges,A1,A2,mu1,mu2,s1,s2 ):
-  m=stats.moyal()
-  mo=stats.moyal.pdf(edges,loc=mu1,scale=s1)*A1
-  gauss=A2*np.exp(-0.5*(edges-mu2)**2/s2**2)
-  return mo+gauss
-def just_moyal(edges,A1,mu1,s1):
-  m=stats.moyal()
-  return stats.moyal.pdf(edges,loc=mu1,scale=s1)*A1
-
-
-def gaussanmoyal(edges,A1,A2,mu1,mu2,s1,s2,div):
-  m=stats.moyal()
-  mo=stats.moyal.pdf(edges,loc=mu1,scale=s1)*A1
-  gauss=A2*np.exp(-0.5*(edges-mu2)**2/s2**2)
-  return np.where(edges<div,gauss,mo)
-
-def edges_adjust(edges):
-  '''trasforma l'output "edges" della funzione np.hist in un formato utilizzabile dalle altre funzioni'''
-  n=len(edges)-1
-  realedges=np.zeros(n)
-  for i in range(n):
-    realedges[i]=(edges[i]+edges[i+1])*0.5
-  return realedges
-
-
 #CALCOLO SISTEMATICO AMPIEZZE GRAFICI
 #------------------------------------------------------------------------------------------------------------------------------
 
 def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
 
-  '''Calcola le ampiezze di un set di misure C prese ognuna con i tempi t, fittandole con 3 diverse modalità:
 
 
-     mode=0: Gaussiana biforcuta 
-     mode=1: Gaussiana "skewed"
-     mode=2: Calcolo del minimo a partire dai dati filtrati
-     
-     Stampa a schermo ogni volta che non è stato possibile eseguire un fit
-     
-     L'argomento "step" indica la frequenza con cui il programma esegue il fit
-     
-     Per le mode 0 e 1 la funzione porta in output le ampiezze, lo spostamento mu, e la baseline di ogni presa dati. 
-     Per la mode 2 porta in ouput solo le ampiezze   '''
+  '''Computes the amplitudes of a set of waveforms, with 3 different methods.
+    it accepts arguments:
+
+      t (array): time at wich each measurement was taken
+      
+      C (array): value of each measurement
+      
+      mode=0 (int): method used to calculate amplitudes, it has values
+          0: bifurcated Gaussian
+          1: skewed Gaussian
+          2: finds the minimum of each waveform without fitting it
+      
+      step=50 (int): frequency of samples used to calculate the fit 
+      
+      
+  '''
 
   #inizializzazione array
 
@@ -199,16 +131,17 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
 
 def fit_hist(A,method=0):
 
-  '''Funzione utilizzat per fittare gli istogrammi delle ampiezze, accetta gli argomenti 
+  ''' Function used to fit the amplitudes histogram, with arguments:
 
-        A:ampiezze delle waveform, dulle quali costruire l'istogramma
-        method: funzione che si vuole utilizzare per fittare l'istogramma, si sceglie tra
-            0: Landau
-            1:Landau+Gaussiana
-            2:Gaussiana fino ad un certo punto, poi Landau '''
+      A: amplitudes of each waveform, output of "Amplitude_dist"
+      method=0: function used in the fit, it accepts values
+          0: Landau
+          1: Landau+Gaussian
+          2: Gaussian until a certain point, then Landau (not used)
+   '''
 
   A0h,A0e_prov=np.histogram(A,bins=100,range=(0.1,100))
-  A0e=edges_adjust(A0e_prov)
+  A0e=0.5*(A0e_prov[1:]+A0e_prov[:-1])
   if method==0:
     nmoyal=sum(A0h[7:])
     pf,pcov=optimize.curve_fit(UF.just_moyal,A0e,A0h,p0=[nmoyal,17.0,10.0])
@@ -231,7 +164,7 @@ def fit_hist(A,method=0):
 #---------------------------------------------------------------------------------------------------------------------------
 
 def make_plot(title,source):
-    '''Plot dell'istogtamma'''
+    '''Plots the histogram'''
     p = figure(title=title, tools='crosshair,pan,reset,save,wheel_zoom', background_fill_color="#fafafa")
     p.quad(top='hist',source=source, bottom=0, left='edges1', right='edges2',
            fill_color="blue", line_color="white", alpha=0.5,legend_label='')
@@ -245,7 +178,7 @@ def make_plot(title,source):
 
 
 def make_plot2(title,source3):
-    '''Plot di una waveform singola'''
+    '''Plots a single waveform'''
     p = figure(title=title, tools="crosshair,pan,reset,save,wheel_zoom", background_fill_color="black")
     p.line('t','V',source=source3, line_color="green", line_width=1, alpha=1, legend_label="Waveform")
 

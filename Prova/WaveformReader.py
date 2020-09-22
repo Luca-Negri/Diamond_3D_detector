@@ -17,19 +17,14 @@ class WaveformReader:
 
   def __init__(self,Volt_rangeA=3,Volt_rangeB=2,Trigger_value=-12,Trigger_type=2):
     
-    '''Classe per interfacciarsi con la scheda di acquisizione
-      picoscope2206b.
+    '''Class is used to interface with oscilloscope picoscope2206b (it should work with every scope from the picoscope 2000a series)
+      
+      Contains:
 
-      Contiene: init(Volt_range=3,Trigger_value=2048)
-                run()
-                run2()
+        __init__(Volt_rangeA=3,Volt_rangeB=2, Trigger_value=-12, Trigger_type=2): 
+          inizialize the oscilloscope and the measurement parameters for the 2 channels
 
-
-
-      init: Inizializza l'oscilloscopio e i parametri di misura del 
-            canaleA
- 
-            Volt_range=seleziona tra 10 diversi range di voltaggio
+            Volt_rangeA,Volt_rangeB : selects between 10 different volt ranges:
                       1= 20 mV PP 
                       2= 50 mV PP
                       3= 100 mV PP
@@ -40,19 +35,18 @@ class WaveformReader:
                       8= 5 V PP
                       9= 10 V PP
                       10= 20 V PP
+            Trigger_value : value in mV to trigger the measurement (channelB is used to trigger)
 
-            Trigger_value= valore in ordine di cicli dell'ADC per 
-                        far scattare il Trigger
-
-            Trigger_type= tipo di trigger, da selezionare tra 
+            Trigger_type : selects between 5 vdifferent trigeìger modes
                       1= ABOVE 
                       1= BELOW 
                       1= RISING 
                       1= FALLING
                       1= RISING_OR_FALLING
 
-    run2: aziona una singola presa dati dell'oscilloscopio, in
-          memoria i dati sono registrati sugli array di classe t,C1,C2
+
+        run() : outputs the latest measurement , with t,C1,C2 
+
 
     '''
 
