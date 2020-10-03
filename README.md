@@ -1,4 +1,4 @@
-# Prova
+# Diamond_3D_detector
 
 This package aims to provide a simple way to analize the efficency of diamond radiation detectors.
 
