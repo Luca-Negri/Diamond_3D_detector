@@ -37,6 +37,7 @@ class DatabaseWrite:
         self.C1=[]
         self.C2=[]
         self._db.execute ( "CREATE TABLE IF NOT EXISTS waveforms (time, c1, c2)" ) 
+        self._db.commit()
 
     def run (self):
         for i in range(1): 
@@ -69,6 +70,7 @@ class DatabaseWrite:
 
                     self._db.execute ( "INSERT INTO waveforms (time, c1, c2) VALUES ( ?, ?, ? ) ",
                             (encoded_t, encoded_1, encoded_2) ) 
+                    self._db.commit()
 
 
 
@@ -124,6 +126,10 @@ class DatabaseWrite:
 
       return t_,C1_,C2_
 
+    def reset_database(self):
+
+      c=self._db.cursor()
+      c.execute('DROP TABLE waveforms')
 
 if __name__ == '__main__':
     acquisitionMananger = WaveformReader ()

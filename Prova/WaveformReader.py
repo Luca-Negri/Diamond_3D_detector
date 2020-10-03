@@ -15,7 +15,7 @@ from picosdk.functions import adc2mV, assert_pico_ok,mV2adc
 
 class WaveformReader:
 
-  def __init__(self,Volt_rangeA=3,Volt_rangeB=2,Trigger_value=-12,Trigger_type=2):
+  def __init__(self,Volt_rangeA=3,Volt_rangeB=2,Trigger_value=-12,Trigger_type=2,preTriggerSamples=2500,postTriggerSamples=4500):
     
     '''Class is used to interface with oscilloscope picoscope2206b (it should work with every scope from the picoscope 2000a series)
       
@@ -71,6 +71,8 @@ class WaveformReader:
     self.VoltrangeB=Volt_rangeB
     self.trigger_value=mV2adc(Trigger_value, self.VoltrangeB, maxADC)
     self.Trigger_type=Trigger_type
+    self.preTriggerSamples=preTriggerSamples
+    self.postTriggerSamples=postTriggerSamples
 
 
     # Set up channel A
@@ -107,9 +109,8 @@ class WaveformReader:
 
     assert_pico_ok(self.status["trigger"])
 
-    # Set number of pre and post trigger samples to be collected
-    self.preTriggerSamples = 2500
-    self.postTriggerSamples = 4500
+    # Set number of total trigger samples to be collected
+    
     self.totalSamples = self.preTriggerSamples + self.postTriggerSamples
 
     # Get timebase information
@@ -238,20 +239,22 @@ class WaveformReader:
     #plt.show()
 
 
-    # Stop the scope
-    # handle = chandle
-    #self.status["stop"] = ps.ps2000aStop(self.chandle)
-    #assert_pico_ok(self.status["stop"])
-
-    # Close unitDisconnect the scope
-    # handle = chandle
-    #self.status["close"] = ps.ps2000aCloseUnit(self.chandle)
-    #assert_pico_ok(self.status["close"])
 
     # display status returns
     #print(self.status)
     return self.t,self.waveformA,self.waveformB    
 
+  def close(self):
+
+    # Stop the scope
+    # handle = chandle
+    self.status["stop"] = ps.ps2000aStop(self.chandle)
+    assert_pico_ok(self.status["stop"])
+
+    # Close unitDisconnect the scope
+    # handle = chandle
+    self.status["close"] = ps.ps2000aCloseUnit(self.chandle)
+    assert_pico_ok(self.status["close"])
 
 if __name__=='__main__':
 

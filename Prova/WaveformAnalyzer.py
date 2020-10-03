@@ -13,8 +13,9 @@ from scipy.ndimage import gaussian_filter
 from time import time
 from bokeh.layouts import gridplot,column,row
 from bokeh.plotting import figure, output_file, show,output_notebook
-from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph,TextInput
+from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph,TextInput,TextAreaInput
 from bokeh.io import curdoc
+from io import StringIO
 from DatabaseWriter import DatabaseWrite
 from FakeWaveformReader import FakeWaveformReader
 from WaveformReader import WaveformReader
@@ -22,13 +23,15 @@ from tqdm import tqdm
 from UsefulFunctions import UsefulFunctions as UF
 
 dfit=pd.read_csv('Fitting_parameters.csv',index_col=0,delimiter=',',comment='#')
-
+text_file=open('Default_text.txt','r')
 p0_GB=[dfit['valore']['amplGB'],dfit['valore']['muGB'],dfit['valore']['sigma1GB'],dfit['valore']['sigma2GB'],dfit['valore']['baselineGB']]
 p0_GS=[dfit['valore']['amplGS'],dfit['valore']['muGS'],dfit['valore']['sigmaGS'],dfit['valore']['skewnessGS'],dfit['valore']['baselineGS']]
 p0_L=[dfit['valore']['muL'],dfit['valore']['sigmaL']]
 p0_LG=[dfit['valore']['mulandLG'],dfit['valore']['mugaussLG'],dfit['valore']['sigmalandLG'],dfit['valore']['sigmagaussLG']]
 
-
+div_noise=int([dfit['valore']['div']][0])
+Default_text=text_file.read()
+text_file.close()
 
 #CALCOLO SISTEMATICO AMPIEZZE GRAFICI
 #------------------------------------------------------------------------------------------------------------------------------
@@ -143,17 +146,21 @@ def fit_hist(A,method=0):
   A0h,A0e_prov=np.histogram(A,bins=100,range=(0.1,100))
   A0e=0.5*(A0e_prov[1:]+A0e_prov[:-1])
   if method==0:
-    nmoyal=sum(A0h[7:])
-    pf,pcov=optimize.curve_fit(UF.just_moyal,A0e,A0h,p0=[nmoyal,17.0,10.0])
+    nmoyal=sum(A0h[div_noise:])
+    p0_L_def=[nmoyal,p0_L[0],p0_L[1]]
+    pf,pcov=optimize.curve_fit(UF.just_moyal,A0e,A0h,p0=p0_L_def)
     
     A0hfit=UF.just_moyal(A0e,pf[0],pf[1],pf[2])
+    chi2=(A0hfit-A0h)/A0h
   elif method==1:
-    ngauss=sum(A0h[:7])
+    ngauss=sum(A0h[:div_noise])
     nmoyal=sum(A0h[7:])
-    pf,pcov=optimize.curve_fit(UF.moyalangauss,A0e,A0h,p0=[nmoyal, ngauss, 17.0, 1.0, 10,2.0])
+    p0_LG_def=[ngauss,nmoyal,p0_LG[0],p0_LG[1],p0_LG[2],p0_LG[3]]
+    pf,pcov=optimize.curve_fit(UF.moyalangauss,A0e,A0h,p0=p0_LG_def)
   
     
     A0hfit=UF.moyalangauss(A0e,pf[0],pf[1],pf[2],pf[3],pf[4],pf[5])
+    chi2=(A0hfit-A0h)/A0h
   elif method==2:
     pf,pcov=optimize.curve_fit(UF.gaussanmoyal,A0e,A0h,p0=[5000.0 , 5, 17.0, 3.0, 10,0.1,5])
     A0hfit=UF.gaussanmoyal(A0e,pf[0],pf[1],pf[2],pf[3],pf[4],pf[5],pf[6])
@@ -167,7 +174,7 @@ def make_plot(title,source):
     '''Plots the histogram'''
     p = figure(title=title, tools='crosshair,pan,reset,save,wheel_zoom', background_fill_color="#fafafa")
     p.quad(top='hist',source=source, bottom=0, left='edges1', right='edges2',
-           fill_color="blue", line_color="white", alpha=0.5,legend_label='')
+           fill_color="blue", line_color="white", alpha=0.5)
     p.y_range.start = 0
     p.legend.location = "center_right"
     p.legend.background_fill_color = "#fefefe"
@@ -180,7 +187,7 @@ def make_plot(title,source):
 def make_plot2(title,source3):
     '''Plots a single waveform'''
     p = figure(title=title, tools="crosshair,pan,reset,save,wheel_zoom", background_fill_color="black")
-    p.line('t','V',source=source3, line_color="green", line_width=1, alpha=1, legend_label="Waveform")
+    p.line('t','V',source=source3, line_color="lime", line_width=1, alpha=1, legend_label="Waveform")
 
     
     p.legend.location = "bottom_left"
@@ -205,8 +212,16 @@ p=make_plot('Istogramma 0',source)    #inizializzazione della figura
 p2=make_plot2('Attuale presa dati',source3)
 acquisizione=False         #controlla che il programma stia acquisendo dati, inizializzato a falso
 update_menu_check=False    #controllo se necessario fittare i dati dell'istogramma
+Area_text=TextAreaInput(value=Default_text,rows=6)
+Area_text_data=StringIO(Area_text.value)
+df_wfr=pd.read_csv(Area_text_data,index_col=0, delimiter=',')
+acquisitionMananger =WaveformReader (Volt_rangeA = df_wfr['Val']['Channel_A_range'],
+                                    Volt_rangeB = df_wfr['Val']['Channel_B_range'],
+                                    Trigger_value = df_wfr['Val']['Trigger_value'],
+                                    Trigger_type = df_wfr['Val']['Trigger_type'],
+                                    preTriggerSamples=df_wfr['Val']['preTriggerSamples'],
+                                    postTriggerSamples=df_wfr['Val']['postTriggerSamples'] ) #Scelta della classe python che si occupa della lettura delle waveform
 nome_db=TextInput(title='Nome del database di memorizzazione:',value='waveforms.db') #Widget per il cambiamento del nome del file di database
-acquisitionMananger =FakeWaveformReader () #Scelta della classe python che si occupa della lettura delle waveform
 dbw = DatabaseWrite (nome_db.value, acquisitionMananger) #classe python che si occupa della gestione in memoria delle waveform
 
 
@@ -219,13 +234,18 @@ def update_button0():
 
   A0h,A0e,A0hfit,p0,p0cov=fit_hist(A0,method=0)
   source2.data=dict(x1=A0e,y1=A0hfit)
+  chi2=UF.chi2(A0h,A0hfit)
+  median_Ampl=UF.mwdian_Ampl(edges,p0[0],p0[1],p0[2])
   p.line('x1','y1' ,source=source2 ,line_color="#ff8888", line_width=4, alpha=0.7, legend_label='Fit con Landau')
+
 def update_button1():
 
   '''Bottone per il fitting della Landau+ la Gaussiana'''
 
   A0h,A0e,A0hfit,p0,p0cov=fit_hist(A0,method=1)
   source2.data=dict(x1=A0e,y1=A0hfit)
+  chi2=UF.chi2(A0h,A0hfit)
+  median_Ampl=UF.mwdian_Ampl(edges,p0[0],p0[3],p0[5])
   p.line('x1','y1',source=source2 ,line_color="green", line_width=4, alpha=0.7, legend_label='Fit con Landau+Gaussiana')
 
 def update_button2():
@@ -259,10 +279,42 @@ ciclo_acq. quando la variabile acquisizione=True
     bottone2.update(label='Inizio acquisizione',button_type='success')
     update_menu(0,0,0)
 
+def update_button3():
+  '''Function that resets database when button3 is clicked'''
+  bottone4.update(visible=True)
+  bottone5.update(visible=True)
+
+def update_button4():
+  global dbw
+  dbw.reset_database() 
+
+  dbw = DatabaseWrite (nome_db.value, acquisitionMananger) #classe python che si occupa della gestione in memoria delle waveform
+  bottone4.update(visible=False)
+  bottone5.update(visible=False)
+
+def update_button5():
+
+  bottone4.update(visible=False)
+  bottone5.update(visible=False)
+
 def update_nome_db(attr,old,new):
   global dbw  
   dbw = DatabaseWrite (nome_db.value, acquisitionMananger) 
 
+def update_Area_text(attr,old,new):
+  global dbw,acquisitionMananger
+  Area_text_data=StringIO(Area_text.value)
+  
+  df_wfr=pd.read_csv(Area_text_data,index_col=0, delimiter=',')
+  acquisitionMananger.close()
+  acquisitionMananger =WaveformReader (Volt_rangeA = df_wfr['Val']['Channel_A_range'],
+                                    Volt_rangeB = df_wfr['Val']['Channel_B_range'],
+                                    Trigger_value = df_wfr['Val']['Trigger_value'],
+                                    Trigger_type = df_wfr['Val']['Trigger_type'],
+                                    preTriggerSamples=df_wfr['Val']['preTriggerSamples'],
+                                    postTriggerSamples=df_wfr['Val']['postTriggerSamples'] ) #Scelta della classe python che si occupa della lettura delle waveform
+
+  dbw = DatabaseWrite (nome_db.value, acquisitionMananger) 
 
 def ciclo_acq():
   global t,C1
@@ -275,7 +327,7 @@ def ciclo_acq():
    
     t_,C1_,C2_=dbw.readlastWaveform() 
 
-    source3.data=dict(t=t_,V=C1_)
+    source3.data=dict(t=t_,V=C2_)
     titolo='Attuale presa dati numero:'+str(dbw.it)
     p2.title.text=titolo
     #t,C1,C2=dbw.readWaveforms()
@@ -321,16 +373,24 @@ def update_menu(attr,old,new):
 bottone0=Button(label='Fit con Landau',visible=False)
 bottone1=Button(label='Fit con Landau+Gaussiana',visible=False)
 bottone2=Button(label='Iniziare presa misure',button_type='success')
+bottone3=Button(label='Reset del database',button_type='danger')
+bottone4=Button(label='Conferma',button_type='success',width=200,visible=False)
+bottone5=Button(label='Annulla',button_type='danger',width=200,visible=False)
+
 menu=Select(options=['Gaussiana biforcuta','Gaussiana skew','Ricerca minimi semplice'],value='Gaussiana biforcuta',title='Fit delle singole prese dati')
 infobox=Paragraph(text='Programma pronto per iniziare a prendere misure',width=400)
 
+Area_text.on_change('value',update_Area_text)
 menu.on_change('value',update_menu)
 nome_db.on_change('value',update_nome_db)
 bottone0.on_click(update_button0)
 bottone1.on_click(update_button1)
 bottone2.on_click(update_button2)
-
-fitting_buttons=column(bottone2,bottone0,bottone1,menu,nome_db,infobox)
+bottone3.on_click(update_button3)
+bottone4.on_click(update_button4)
+bottone5.on_click(update_button5)
+confirmation_buttons=row(bottone4,bottone5)
+fitting_buttons=column(bottone2,bottone0,bottone1,bottone3,confirmation_buttons,menu,nome_db,Area_text,infobox)
 
 
 curdoc().add_root(row(fitting_buttons, p,p2, width=1200))

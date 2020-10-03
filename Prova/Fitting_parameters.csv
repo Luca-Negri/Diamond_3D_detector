@@ -24,3 +24,8 @@ mulandLG,    17
 sigmalandLG, 10
 mugaussLG,   1
 sigmagaussLG,2
+#
+#Divisione rumore-Landau:
+
+div,7
+

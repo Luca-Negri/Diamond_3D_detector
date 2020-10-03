@@ -60,3 +60,14 @@ class UsefulFunctions:
         for i in range(n):
             realedges[i]=(edges[i]+edges[i+1])*0.5
         return realedges
+
+    def chi2(A0h,A0hfit):
+        return (A0h-A0hfit)**2/A0hfit
+   
+   
+    def median_Ampl(A1,mu1,s1,edges):
+        A0hfit=just_moyal(edges,A1,mu1,s1)
+        return A0hfit*edges/np.sum(A0hfit)
+
+
+ 
