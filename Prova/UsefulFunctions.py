@@ -65,9 +65,26 @@ class UsefulFunctions:
         return (A0h-A0hfit)**2/A0hfit
    
    
-    def median_Ampl(A1,mu1,s1,edges):
-        A0hfit=just_moyal(edges,A1,mu1,s1)
-        return A0hfit*edges/np.sum(A0hfit)
+    def median_Ampl(edges,A1,mu1,s1):
+        dx=edges[1]-edges[0]
+        A0hfit=stats.moyal.pdf(edges,loc=mu1,scale=s1)*A1
+        return np.dot( A0hfit,edges)*dx/sum(A0hfit)
+
+    def Landau_error(edges,A,mu,s,Ae,mue,se,it=500):
+        mean_Ampl=np.zeros(it)
+        for i in range(it):
+
+            Atemp=np.random.normal(A,Ae)
+            mutemp=np.random.normal(mu,mue)
+
+            stemp=np.random.normal(s,se)
+
+            dx=edges[1]-edges[0]
+            A0hfit=stats.moyal.pdf(edges,loc=mutemp,scale=stemp)*Atemp
+            mean_Ampl[i]= np.dot( A0hfit,edges)*dx/sum(A0hfit)
+        return np.mean(mean_Ampl),np.std(mean_Ampl)
+
+
 
 
  

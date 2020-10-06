@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter
 from time import time
 from bokeh.layouts import gridplot,column,row
 from bokeh.plotting import figure, output_file, show,output_notebook
-from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph,TextInput,TextAreaInput
+from bokeh.models import Slider,Button,Select,ColumnDataSource,Paragraph,TextInput,TextAreaInput,Label
 from bokeh.io import curdoc
 from io import StringIO
 from DatabaseWriter import DatabaseWrite
@@ -28,7 +28,7 @@ p0_GB=[dfit['valore']['amplGB'],dfit['valore']['muGB'],dfit['valore']['sigma1GB'
 p0_GS=[dfit['valore']['amplGS'],dfit['valore']['muGS'],dfit['valore']['sigmaGS'],dfit['valore']['skewnessGS'],dfit['valore']['baselineGS']]
 p0_L=[dfit['valore']['muL'],dfit['valore']['sigmaL']]
 p0_LG=[dfit['valore']['mulandLG'],dfit['valore']['mugaussLG'],dfit['valore']['sigmalandLG'],dfit['valore']['sigmagaussLG']]
-
+Gain=dfit['valore']['gain']
 div_noise=int([dfit['valore']['div']][0])
 Default_text=text_file.read()
 text_file.close()
@@ -36,7 +36,7 @@ text_file.close()
 #CALCOLO SISTEMATICO AMPIEZZE GRAFICI
 #------------------------------------------------------------------------------------------------------------------------------
 
-def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
+def Amplitude_dist(t,C,mode=0,step=20,nfiles=0):
 
 
 
@@ -85,7 +85,7 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
 
     for i in tqdm(range(n)):
       pf=np.zeros(5)
-      C1_sm=gaussian_filter(C1[i],40)
+      C1_sm=gaussian_filter(C1[i],30)
       try:
         pf,pcov=optimize.curve_fit(UF.gauss_asimm,t[i,::step],C1_sm[::step],p0=p0_GB)
       except:
@@ -113,7 +113,7 @@ def Amplitude_dist(t,C,mode=0,step=50,nfiles=0):
 
         #parte di ricerca del minimo
         
-        A=optimize.minimize(UF.gauss_skew,14,args=(pf[0],pf[1],pf[2],pf[3],pf[4]))
+        A=optimize.minimize(UF.gauss_skew,p0_GS[1],args=(pf[0],pf[1],pf[2],pf[3],pf[4]))
 
         Amplitude[i]=-A.fun+pf[4]
         mu[i]=A.x 
@@ -180,6 +180,8 @@ def make_plot(title,source):
     p.legend.background_fill_color = "#fefefe"
     p.xaxis.axis_label = 'Ampiezze (mV)'
     p.yaxis.axis_label = 'N prese dati'
+    p.xaxis.axis_label_text_font_size='13pt'
+    p.yaxis.axis_label_text_font_size='13pt'    
     p.grid.grid_line_color="white"
     return p
 
@@ -194,6 +196,9 @@ def make_plot2(title,source3):
     p.legend.background_fill_color = "#fefefe"
     p.yaxis.axis_label = 'Ampiezza (mV)'
     p.xaxis.axis_label = 'Tempo (ns)'
+
+    p.xaxis.axis_label_text_font_size='13pt'
+    p.yaxis.axis_label_text_font_size='13pt'    
     p.grid.grid_line_color="white"
     return p
 
@@ -210,6 +215,11 @@ source2=ColumnDataSource(data=dict(x1=np.zeros(100),y1=np.zeros(100)))      #sou
 source3=ColumnDataSource(data=dict(t=np.linspace(0,1000,1000),V=np.zeros(1000),Vfit=np.zeros(1000))) #source per plottare la waveform corrente
 p=make_plot('Istogramma 0',source)    #inizializzazione della figura
 p2=make_plot2('Attuale presa dati',source3)
+mean_Ampl_label = Label(x=250, y=200, x_units='screen', y_units='screen',
+                 text='', render_mode='canvas',
+                 border_line_color='black', border_line_alpha=1.0,
+                 background_fill_color='white', background_fill_alpha=1.0,visible=False)
+p.add_layout(mean_Ampl_label)
 acquisizione=False         #controlla che il programma stia acquisendo dati, inizializzato a falso
 update_menu_check=False    #controllo se necessario fittare i dati dell'istogramma
 Area_text=TextAreaInput(value=Default_text,rows=6)
@@ -221,7 +231,7 @@ acquisitionMananger =WaveformReader (Volt_rangeA = df_wfr['Val']['Channel_A_rang
                                     Trigger_type = df_wfr['Val']['Trigger_type'],
                                     preTriggerSamples=df_wfr['Val']['preTriggerSamples'],
                                     postTriggerSamples=df_wfr['Val']['postTriggerSamples'] ) #Scelta della classe python che si occupa della lettura delle waveform
-nome_db=TextInput(title='Nome del database di memorizzazione:',value='waveforms.db') #Widget per il cambiamento del nome del file di database
+nome_db=TextInput(title='Nome del database di memorizzazione:',value='Prova.db') #Widget per il cambiamento del nome del file di database
 dbw = DatabaseWrite (nome_db.value, acquisitionMananger) #classe python che si occupa della gestione in memoria delle waveform
 
 
@@ -233,20 +243,33 @@ def update_button0():
   '''Bottone per il fitting con la Landau'''
 
   A0h,A0e,A0hfit,p0,p0cov=fit_hist(A0,method=0)
+  p0err=np.sqrt(np.diag(p0cov))
   source2.data=dict(x1=A0e,y1=A0hfit)
-  chi2=UF.chi2(A0h,A0hfit)
-  median_Ampl=UF.mwdian_Ampl(edges,p0[0],p0[1],p0[2])
-  p.line('x1','y1' ,source=source2 ,line_color="#ff8888", line_width=4, alpha=0.7, legend_label='Fit con Landau')
+  #chi2=UF.chi2(A0h,A0hfit)
+  mean_Ampl,mean_Ampl_err=UF.Landau_error(A0e,p0[0],p0[1],p0[2],p0err[0],p0err[1],p0err[2])
+  print(mean_Ampl,mean_Ampl_err)
+  p.line('x1','y1' ,source=source2 ,line_color="red", line_width=4, alpha=0.7, legend_label='Fit con Landau')
+
+  text='Carica misurata: %d +/- %d e'%(mean_Ampl*Gain,mean_Ampl_err*Gain)
+
+  mean_Ampl_label.update(visible=True,text=text)
 
 def update_button1():
 
   '''Bottone per il fitting della Landau+ la Gaussiana'''
 
   A0h,A0e,A0hfit,p0,p0cov=fit_hist(A0,method=1)
+  p0err=np.sqrt(np.diag(p0cov))
   source2.data=dict(x1=A0e,y1=A0hfit)
-  chi2=UF.chi2(A0h,A0hfit)
-  median_Ampl=UF.mwdian_Ampl(edges,p0[0],p0[3],p0[5])
+  #chi2=UF.chi2(A0h,A0hfit)
+  mean_Ampl,mean_Ampl_err=UF.Landau_error(A0e,p0[0],p0[2],p0[4],p0err[0],p0err[2],p0err[4])
+  print(mean_Ampl,mean_Ampl_err)
   p.line('x1','y1',source=source2 ,line_color="green", line_width=4, alpha=0.7, legend_label='Fit con Landau+Gaussiana')
+
+
+  text='Carica misurata: %d +/- %d '%(mean_Ampl*Gain,mean_Ampl_err*Gain)
+
+  mean_Ampl_label.update(visible=True,text=text)
 
 def update_button2():
 
@@ -265,19 +288,7 @@ ciclo_acq. quando la variabile acquisizione=True
 
     print ('Stop')
      
-    update_menu_check=True
-    #t=np.array(dbw.t)
-    #C1=np.array(dbw.C1)
-    tlist,C1list,C2list=dbw.readWaveforms()
-    C1=np.array(C1list)
-    C2=np.array(C2list)
-    t=np.array(tlist)
-    t=t/1000
-    
-    bottone0.update(visible=True)
-    bottone1.update(visible=True)
     bottone2.update(label='Inizio acquisizione',button_type='success')
-    update_menu(0,0,0)
 
 def update_button3():
   '''Function that resets database when button3 is clicked'''
@@ -296,6 +307,24 @@ def update_button5():
 
   bottone4.update(visible=False)
   bottone5.update(visible=False)
+
+def update_button6():
+
+
+  global acquisizione,t,C1,update_menu_check
+
+
+  update_menu_check=True
+  tlist,C1list,C2list=dbw.readWaveforms()
+  C1=np.array(C1list)
+  C2=np.array(C2list)
+  t=np.array(tlist)
+  t=t/1000
+  update_menu(0,0,0)
+
+
+  bottone0.update(visible=True)
+  bottone1.update(visible=True)
 
 def update_nome_db(attr,old,new):
   global dbw  
@@ -327,7 +356,7 @@ def ciclo_acq():
    
     t_,C1_,C2_=dbw.readlastWaveform() 
 
-    source3.data=dict(t=t_,V=C2_)
+    source3.data=dict(t=t_,V=C1_)
     titolo='Attuale presa dati numero:'+str(dbw.it)
     p2.title.text=titolo
     #t,C1,C2=dbw.readWaveforms()
@@ -376,7 +405,7 @@ bottone2=Button(label='Iniziare presa misure',button_type='success')
 bottone3=Button(label='Reset del database',button_type='danger')
 bottone4=Button(label='Conferma',button_type='success',width=200,visible=False)
 bottone5=Button(label='Annulla',button_type='danger',width=200,visible=False)
-
+bottone6=Button(label='Analizza Dati',button_type='primary')
 menu=Select(options=['Gaussiana biforcuta','Gaussiana skew','Ricerca minimi semplice'],value='Gaussiana biforcuta',title='Fit delle singole prese dati')
 infobox=Paragraph(text='Programma pronto per iniziare a prendere misure',width=400)
 
@@ -389,8 +418,9 @@ bottone2.on_click(update_button2)
 bottone3.on_click(update_button3)
 bottone4.on_click(update_button4)
 bottone5.on_click(update_button5)
+bottone6.on_click(update_button6)
 confirmation_buttons=row(bottone4,bottone5)
-fitting_buttons=column(bottone2,bottone0,bottone1,bottone3,confirmation_buttons,menu,nome_db,Area_text,infobox)
+fitting_buttons=column(bottone2,bottone0,bottone1,bottone6,bottone3,confirmation_buttons,menu,nome_db,Area_text,infobox)
 
 
 curdoc().add_root(row(fitting_buttons, p,p2, width=1200))

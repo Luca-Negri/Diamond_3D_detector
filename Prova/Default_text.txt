@@ -3,6 +3,6 @@ Channel_A_range,     3
 Channel_B_range,     2
 Trigger_value,      -12
 Trigger_type,        2
-preTriggerSamples,   2500
-postTriggerSamples,  4500
+preTriggerSamples,   200
+postTriggerSamples,  2000
  
